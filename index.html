@@ -1,0 +1,1016 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Calendario Presenze</title>
+<style>
+  :root{
+    --navy:#001E43;
+    --navy-2:#0A2E5C;
+    --rosso:#CC0000;
+    --oro:#FFCB31;
+    --bg:#F3F5F9;
+    --card:#FFFFFF;
+    --bordo:#E2E6ED;
+    --testo:#1B2430;
+    --soft:#6B7684;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--testo); -webkit-text-size-adjust:100%;
+  }
+  button{font-family:inherit;cursor:pointer}
+  input,select,textarea{font-family:inherit;font-size:15px}
+
+  /* ---------- Topbar ---------- */
+  .topbar{
+    background:var(--navy); color:#fff; padding:12px 16px;
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    position:sticky; top:0; z-index:40; box-shadow:0 2px 10px rgba(0,30,67,.18);
+  }
+  .brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+  .brand .logo{font-size:24px;line-height:1}
+  .brand h1{font-size:17px;margin:0;letter-spacing:.4px;font-weight:700}
+  .brand p{margin:1px 0 0;font-size:12px;color:#A9BBD4}
+  .tb-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .tb-actions button{
+    background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.2);
+    border-radius:9px; padding:8px 12px; font-size:13px; font-weight:600;
+  }
+  .tb-actions button:hover{background:rgba(255,255,255,.22)}
+  .tb-actions button.on{background:var(--oro);color:var(--navy);border-color:var(--oro)}
+  #syncBadge{
+    display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;
+    background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);
+    padding:7px 11px;border-radius:999px;white-space:nowrap;
+  }
+  #syncBadge .dot{width:9px;height:9px;border-radius:50%;background:#8A97A8;flex:0 0 auto}
+  #syncBadge.ok .dot{background:#39C16C}
+  #syncBadge.dirty .dot{background:var(--oro)}
+  #syncBadge.err .dot{background:#FF6B6B}
+  #syncBadge.busy .dot{background:#5BA8FF;animation:pulse 1s infinite}
+  @keyframes pulse{50%{opacity:.25}}
+
+  /* ---------- Layout ---------- */
+  main{max-width:1280px;margin:0 auto;padding:16px;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start}
+  @media(max-width:1000px){main{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--bordo);border-radius:var(--radius);padding:14px}
+  .card h3{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.7px;color:var(--soft)}
+
+  .month-nav{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .month-nav h2{margin:0;font-size:20px;font-weight:700;flex:1;text-align:center;text-transform:capitalize}
+  .month-nav button{
+    background:#fff;border:1px solid var(--bordo);border-radius:10px;width:40px;height:40px;
+    font-size:20px;color:var(--navy);line-height:1;
+  }
+  .month-nav button:hover{background:#EEF2F8}
+
+  .dow{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px}
+  .dow span{text-align:center;font-size:11px;font-weight:700;color:var(--soft);text-transform:uppercase;letter-spacing:.6px}
+  .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  .cell{
+    background:#fff;border:1px solid var(--bordo);border-radius:10px;min-height:92px;
+    padding:6px;display:flex;flex-direction:column;gap:3px;text-align:left;position:relative;overflow:hidden;
+  }
+  .cell:hover{border-color:var(--navy);box-shadow:0 0 0 2px rgba(0,30,67,.08)}
+  .cell.out{opacity:.38}
+  .cell.we{background:#F7F9FC}
+  .cell.fest{background:#FFF4F4}
+  .cell.today{border-color:var(--navy);box-shadow:0 0 0 2px rgba(0,30,67,.18)}
+  .cell .num{font-size:14px;font-weight:700;display:flex;align-items:center;gap:5px}
+  .cell.fest .num,.cell .num.dom{color:var(--rosso)}
+  .cell .festname{font-size:9.5px;color:var(--rosso);font-weight:600;line-height:1.1}
+  .chip{
+    font-size:10.5px;font-weight:700;padding:2px 6px;border-radius:6px;display:inline-block;
+    line-height:1.4;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .cell .nota{font-size:10.5px;color:var(--soft);line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .cell .evs{font-size:10.5px;color:var(--navy-2);font-weight:600;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cell .rep{position:absolute;top:5px;right:5px;font-size:11px}
+  @media(max-width:700px){
+    .cell{min-height:64px;padding:4px;border-radius:8px}
+    .cell .nota{display:none}
+    .grid,.dow{gap:4px}
+    .cell .num{font-size:12.5px}
+    .chip{font-size:9px;padding:1px 4px}
+    .cell .evs{font-size:9px}
+  }
+
+  /* ---------- Vista anno ---------- */
+  .year-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  @media(max-width:900px){.year-grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:520px){.year-grid{grid-template-columns:1fr}}
+  .mini h4{margin:0 0 6px;font-size:13px;text-align:center;text-transform:capitalize;color:var(--navy);cursor:pointer}
+  .mini .mg{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+  .mini .md{
+    aspect-ratio:1;border-radius:4px;font-size:9.5px;display:flex;align-items:center;justify-content:center;
+    background:#F4F6FA;color:#55606E;border:1px solid transparent;cursor:pointer;
+  }
+  .mini .md.empty{background:transparent;cursor:default}
+  .mini .md.we{background:#E9EDF4}
+  .mini .md.fest{color:var(--rosso);font-weight:700}
+
+  /* ---------- Sidebar ---------- */
+  .kpi{display:flex;flex-direction:column;gap:8px}
+  .kpi-row{display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid var(--bordo);border-radius:10px}
+  .kpi-row .ic{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex:0 0 auto}
+  .kpi-row .lab{font-size:12px;color:var(--soft);font-weight:600}
+  .kpi-row .val{font-size:15px;font-weight:700}
+  .kpi-row .res{margin-left:auto;text-align:right;font-size:11px;color:var(--soft)}
+  .kpi-row .res b{display:block;font-size:14px;color:var(--testo)}
+  .upc{display:flex;flex-direction:column;gap:7px;max-height:340px;overflow:auto}
+  .upc-item{display:flex;gap:9px;align-items:flex-start;padding:8px 9px;border:1px solid var(--bordo);border-radius:10px;cursor:pointer}
+  .upc-item:hover{background:#F6F8FC}
+  .upc-item .d{background:var(--navy);color:#fff;border-radius:8px;padding:4px 7px;text-align:center;min-width:42px;flex:0 0 auto}
+  .upc-item .d b{display:block;font-size:14px;line-height:1.1}
+  .upc-item .d span{font-size:9px;text-transform:uppercase;letter-spacing:.4px}
+  .upc-item .t{font-size:13px;font-weight:600;line-height:1.3}
+  .upc-item .s{font-size:11px;color:var(--soft)}
+  .vuoto{font-size:12.5px;color:var(--soft);padding:6px 2px}
+
+  .legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+
+  /* ---------- Modali ---------- */
+  .overlay{position:fixed;inset:0;background:rgba(10,20,35,.5);display:none;align-items:flex-start;justify-content:center;padding:18px;z-index:60;overflow:auto}
+  .overlay.open{display:flex}
+  .modal{background:#fff;border-radius:16px;width:100%;max-width:520px;margin:auto;box-shadow:0 18px 50px rgba(0,0,0,.28)}
+  .modal header{background:var(--navy);color:#fff;padding:14px 16px;border-radius:16px 16px 0 0;display:flex;align-items:center;gap:10px}
+  .modal header h3{margin:0;font-size:16px;flex:1;text-transform:capitalize}
+  .modal header button{background:transparent;border:0;color:#fff;font-size:22px;line-height:1}
+  .modal .body{padding:16px;display:flex;flex-direction:column;gap:14px}
+  .modal footer{padding:12px 16px;border-top:1px solid var(--bordo);display:flex;gap:8px;flex-wrap:wrap}
+  label.f{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:700;color:var(--soft);text-transform:uppercase;letter-spacing:.5px}
+  label.f input,label.f select,label.f textarea{
+    border:1px solid var(--bordo);border-radius:10px;padding:10px;font-weight:400;color:var(--testo);
+    text-transform:none;letter-spacing:0;background:#fff;width:100%;
+  }
+  label.f textarea{min-height:70px;resize:vertical}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .tipi{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+  @media(max-width:480px){.tipi{grid-template-columns:repeat(2,1fr)}}
+  .tipo-btn{
+    border:1.5px solid var(--bordo);background:#fff;border-radius:10px;padding:9px 6px;font-size:12px;font-weight:700;
+    display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--testo);
+  }
+  .tipo-btn .e{font-size:16px}
+  .tipo-btn.sel{border-width:2px}
+  .btn{border:0;border-radius:10px;padding:11px 15px;font-size:14px;font-weight:700}
+  .btn-pri{background:var(--navy);color:#fff}
+  .btn-sec{background:#EEF1F6;color:var(--navy)}
+  .btn-dan{background:#FDE7E7;color:var(--rosso)}
+  .btn-pri:hover{background:var(--navy-2)}
+  .grow{flex:1}
+  .ev-list{display:flex;flex-direction:column;gap:7px}
+  .ev-row{display:grid;grid-template-columns:86px 1fr 36px;gap:6px;align-items:center}
+  .ev-row input{border:1px solid var(--bordo);border-radius:9px;padding:9px}
+  .ev-row button{background:#FDE7E7;color:var(--rosso);border:0;border-radius:9px;height:38px;font-size:15px}
+  .hint{font-size:11.5px;color:var(--soft);line-height:1.45}
+  .seg{display:flex;gap:6px}
+  .seg button{flex:1;border:1.5px solid var(--bordo);background:#fff;border-radius:10px;padding:9px;font-size:13px;font-weight:700;color:var(--soft)}
+  .seg button.sel{border-color:var(--navy);background:var(--navy);color:#fff}
+  .switch{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:600}
+  .switch input{width:18px;height:18px}
+  .box{border:1px solid var(--bordo);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}
+  .box h4{margin:0;font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--soft)}
+  .msg{font-size:12.5px;border-radius:9px;padding:9px 11px;display:none}
+  .msg.show{display:block}
+  .msg.ok{background:#E6F6ED;color:#1E6B3F}
+  .msg.err{background:#FDE7E7;color:#9E1B1B}
+  .toast{
+    position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--navy);color:#fff;
+    padding:11px 18px;border-radius:999px;font-size:13.5px;font-weight:600;z-index:90;opacity:0;pointer-events:none;
+    transition:opacity .25s, transform .25s; box-shadow:0 8px 24px rgba(0,0,0,.25);
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px)}
+
+  @media print{
+    .topbar,aside,.month-nav button,.legend,.overlay{display:none!important}
+    main{grid-template-columns:1fr;padding:0}
+    .card{border:0}
+    .cell{min-height:80px}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">🗓️</span>
+    <div>
+      <h1>CALENDARIO PRESENZE</h1>
+      <p id="subtitle">Agenda personale</p>
+    </div>
+  </div>
+  <div class="tb-actions">
+    <span id="syncBadge"><span class="dot"></span><span id="syncTxt">Solo locale</span></span>
+    <button id="btnToday">Oggi</button>
+    <button id="btnYear">Anno</button>
+    <button id="btnExport">Esporta</button>
+    <button id="btnSettings">⚙︎ Budget</button>
+    <button id="btnGit">☁︎ GitHub</button>
+  </div>
+</header>
+
+<main>
+  <section>
+    <div class="card">
+      <div class="month-nav">
+        <button id="prev" title="Mese precedente">‹</button>
+        <h2 id="periodLabel"></h2>
+        <button id="next" title="Mese successivo">›</button>
+      </div>
+
+      <div id="monthView">
+        <div class="dow"><span>Lun</span><span>Mar</span><span>Mer</span><span>Gio</span><span>Ven</span><span>Sab</span><span>Dom</span></div>
+        <div class="grid" id="grid"></div>
+      </div>
+
+      <div id="yearView" hidden>
+        <div class="year-grid" id="yearGrid"></div>
+      </div>
+
+      <div class="legend" id="legend"></div>
+    </div>
+  </section>
+
+  <aside style="display:flex;flex-direction:column;gap:16px">
+    <div class="card">
+      <h3>Riepilogo <span id="annoLab"></span></h3>
+      <div class="kpi" id="kpi"></div>
+    </div>
+    <div class="card">
+      <h3>Prossimi impegni</h3>
+      <div class="upc" id="upcoming"></div>
+    </div>
+  </aside>
+</main>
+
+<!-- ============ MODALE GIORNO ============ -->
+<div class="overlay" id="ovDay">
+  <div class="modal">
+    <header><h3 id="dayTitle"></h3><button data-close="ovDay">×</button></header>
+    <div class="body">
+      <div>
+        <label class="f" style="margin-bottom:7px">Tipo giornata</label>
+        <div class="tipi" id="tipiBox"></div>
+      </div>
+
+      <div id="fraBox" hidden>
+        <label class="f" style="margin-bottom:7px">Durata</label>
+        <div class="seg">
+          <button type="button" data-fra="1">Giornata intera</button>
+          <button type="button" data-fra="0.5">Mezza giornata</button>
+        </div>
+      </div>
+
+      <label class="f" id="oreBox" hidden>Ore (per PAR / permessi orari)
+        <input type="number" id="dOre" min="0" max="24" step="0.5" placeholder="es. 4">
+      </label>
+
+      <label class="switch"><input type="checkbox" id="dRep"> Reperibilità / turno di guardia</label>
+
+      <label class="f">Note
+        <textarea id="dNote" placeholder="Annotazioni della giornata…"></textarea>
+      </label>
+
+      <div class="box">
+        <h4>Appuntamenti</h4>
+        <div class="ev-list" id="evList"></div>
+        <button class="btn btn-sec" id="btnAddEv" type="button">+ Aggiungi appuntamento</button>
+      </div>
+
+      <div class="box">
+        <h4>Applica a un intervallo</h4>
+        <div class="row2">
+          <label class="f">Fino al giorno<input type="date" id="rangeTo"></label>
+          <label class="switch" style="align-self:end;padding-bottom:10px"><input type="checkbox" id="rangeWork" checked> Solo feriali</label>
+        </div>
+        <button class="btn btn-sec" id="btnRange" type="button">Applica tipo e note all'intervallo</button>
+        <p class="hint">Copia il tipo giornata (e le note) su tutti i giorni fino alla data indicata. Gli appuntamenti non vengono copiati.</p>
+      </div>
+    </div>
+    <footer>
+      <button class="btn btn-dan" id="btnClearDay" type="button">Svuota giorno</button>
+      <button class="btn btn-pri grow" id="btnSaveDay" type="button">Salva</button>
+    </footer>
+  </div>
+</div>
+
+<!-- ============ MODALE BUDGET ============ -->
+<div class="overlay" id="ovSet">
+  <div class="modal">
+    <header><h3>Budget annuale</h3><button data-close="ovSet">×</button></header>
+    <div class="body">
+      <label class="f">Anno di riferimento
+        <select id="sAnno"></select>
+      </label>
+      <div class="row2">
+        <label class="f">Ferie spettanti (gg)<input type="number" id="sFerie" min="0" step="0.5"></label>
+        <label class="f">Riporto ferie (gg)<input type="number" id="sFerieR" min="0" step="0.5"></label>
+      </div>
+      <div class="row2">
+        <label class="f">PAR spettanti (ore)<input type="number" id="sPar" min="0" step="0.5"></label>
+        <label class="f">Riporto PAR (ore)<input type="number" id="sParR" min="0" step="0.5"></label>
+      </div>
+      <label class="f">Nome mostrato in alto
+        <input type="text" id="sNome" placeholder="Agenda personale">
+      </label>
+      <p class="hint">I residui si calcolano come (spettanti + riporto) − utilizzati nell'anno selezionato.</p>
+    </div>
+    <footer><button class="btn btn-pri grow" id="btnSaveSet" type="button">Salva budget</button></footer>
+  </div>
+</div>
+
+<!-- ============ MODALE GITHUB ============ -->
+<div class="overlay" id="ovGit">
+  <div class="modal">
+    <header><h3>Sincronizzazione GitHub</h3><button data-close="ovGit">×</button></header>
+    <div class="body">
+      <div class="row2">
+        <label class="f">Owner (utente/org)<input type="text" id="gOwner" placeholder="tuo-utente" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+        <label class="f">Repository<input type="text" id="gRepo" placeholder="agenda-privata" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+      </div>
+      <div class="row2">
+        <label class="f">Branch<input type="text" id="gBranch" placeholder="main" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+        <label class="f">Percorso file<input type="text" id="gPath" placeholder="presenze.json" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+      </div>
+      <label class="f">Token (fine-grained, permesso Contents: Read and write)
+        <input type="password" id="gToken" placeholder="github_pat_…" autocapitalize="off" autocorrect="off" spellcheck="false">
+      </label>
+      <label class="switch"><input type="checkbox" id="gAuto" checked> Salvataggio automatico dopo ogni modifica</label>
+      <div class="msg" id="gMsg"></div>
+      <p class="hint">Il token resta solo in questo browser (localStorage) e viaggia unicamente verso api.github.com. Il file viene creato automaticamente al primo salvataggio se non esiste. Il controllo SHA impedisce di sovrascrivere modifiche fatte da un altro dispositivo.</p>
+    </div>
+    <footer>
+      <button class="btn btn-sec" id="btnGitLoad" type="button">Carica da GitHub</button>
+      <button class="btn btn-pri grow" id="btnGitSave" type="button">Salva impostazioni e sincronizza</button>
+    </footer>
+  </div>
+</div>
+
+<!-- ============ MODALE EXPORT ============ -->
+<div class="overlay" id="ovExp">
+  <div class="modal">
+    <header><h3>Esporta</h3><button data-close="ovExp">×</button></header>
+    <div class="body">
+      <label class="f">Anno<select id="eAnno"></select></label>
+      <button class="btn btn-sec" id="btnIcs" type="button">📆 File .ics (Outlook / calendario)</button>
+      <button class="btn btn-sec" id="btnCsv" type="button">📄 File .csv (Excel)</button>
+      <button class="btn btn-sec" id="btnJson" type="button">💾 Backup .json completo</button>
+      <button class="btn btn-sec" id="btnPrint" type="button">🖨️ Stampa il mese a video</button>
+      <p class="hint">Il .ics contiene giornate di assenza come eventi di tutto il giorno e gli appuntamenti con orario.</p>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ===================== COSTANTI ===================== */
+const TIPI = {
+  FERIE:      {lab:'Ferie',       e:'🏖',  col:'#1B7F3B', bg:'#E4F3E8', unit:'gg'},
+  PAR:        {lab:'PAR',         e:'⏱',  col:'#1259A8', bg:'#E3EDF9', unit:'ore'},
+  PERMESSO:   {lab:'Permesso',    e:'📝', col:'#6A3AA0', bg:'#F0E8F9', unit:'ore'},
+  MALATTIA:   {lab:'Malattia',    e:'🩺', col:'#CC0000', bg:'#FBE4E4', unit:'gg'},
+  TRASFERTA:  {lab:'Trasferta',   e:'✈️', col:'#B06A00', bg:'#FCEFD9', unit:'gg'},
+  RECUPERO:   {lab:'Recupero',    e:'🔄', col:'#00737F', bg:'#DEF0F2', unit:'gg'},
+  FORMAZIONE: {lab:'Formazione',  e:'🎓', col:'#3B4C5C', bg:'#E8EDF1', unit:'gg'},
+  SMART:      {lab:'Smart work.', e:'🏠', col:'#55679B', bg:'#EAEEF8', unit:'gg'},
+  ALTRO:      {lab:'Altro',       e:'•',  col:'#4A5460', bg:'#EDEFF2', unit:'gg'}
+};
+const MESI = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+const MESI_B = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
+const K_DATA = 'calpres_data_v1';
+const K_GH   = 'calpres_gh_v1';
+
+/* ===================== STATO ===================== */
+let state = {version:1, updatedAt:null, nome:'Agenda personale', budget:{}, days:{}};
+let gh = {owner:'', repo:'', branch:'main', path:'presenze.json', token:'', auto:true};
+let sha = null;
+let dirty = false;
+let saveTimer = null;
+let view = 'month';
+let cur = new Date(); cur.setHours(0,0,0,0);
+let selIso = null, selTipo = null, selFra = 1, selEv = [];
+
+/* ===================== UTILITY ===================== */
+const $  = id => document.getElementById(id);
+const pad = n => String(n).padStart(2,'0');
+const iso = d => d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const fromIso = s => {const p=s.split('-');return new Date(+p[0],+p[1]-1,+p[2]);};
+const todayIso = () => iso(new Date());
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const num = v => {const n=parseFloat(v);return isNaN(n)?0:n;};
+const fmtN = n => (Math.round(n*100)/100).toString().replace('.',',');
+
+function toast(msg){
+  const t=$('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2400);
+}
+
+/* --- Festività italiane (incl. Pasqua) --- */
+function pasqua(y){
+  const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,
+        f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,
+        i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),
+        mese=Math.floor((h+l-7*m+114)/31), giorno=((h+l-7*m+114)%31)+1;
+  return new Date(y,mese-1,giorno);
+}
+const festCache = {};
+function festivita(y){
+  if(festCache[y]) return festCache[y];
+  const f = {};
+  const add=(d,n)=>{f[iso(d)]=n;};
+  add(new Date(y,0,1),'Capodanno');
+  add(new Date(y,0,6),'Epifania');
+  const p=pasqua(y); add(p,'Pasqua');
+  const lm=new Date(p); lm.setDate(lm.getDate()+1); add(lm,"Lunedì dell'Angelo");
+  add(new Date(y,3,25),'Liberazione');
+  add(new Date(y,4,1),'Festa del Lavoro');
+  add(new Date(y,5,2),'Festa Repubblica');
+  add(new Date(y,7,15),'Ferragosto');
+  add(new Date(y,10,1),'Ognissanti');
+  add(new Date(y,11,8),'Immacolata');
+  add(new Date(y,11,25),'Natale');
+  add(new Date(y,11,26),'Santo Stefano');
+  festCache[y]=f; return f;
+}
+
+/* ===================== PERSISTENZA LOCALE ===================== */
+function loadLocal(){
+  try{
+    const raw = localStorage.getItem(K_DATA);
+    if(raw){ const o=JSON.parse(raw); if(o && typeof o==='object') state = normalize(o); }
+  }catch(e){ console.warn('Dati locali non leggibili', e); }
+  try{
+    const g = localStorage.getItem(K_GH);
+    if(g) gh = Object.assign(gh, JSON.parse(g));
+  }catch(e){}
+  try{ sha = localStorage.getItem('calpres_sha') || null; }catch(e){}
+}
+function normalize(o){
+  const s = {version:1, updatedAt:o.updatedAt||null, nome:o.nome||'Agenda personale', budget:o.budget||{}, days:o.days||{}};
+  Object.keys(s.days).forEach(k=>{
+    const d=s.days[k]||{};
+    d.f = d.f==null?1:num(d.f)||1;
+    d.ev = Array.isArray(d.ev)?d.ev:[];
+    s.days[k]=d;
+  });
+  return s;
+}
+function saveLocal(){
+  try{ localStorage.setItem(K_DATA, JSON.stringify(state)); }
+  catch(e){ toast('Memoria del browser piena'); }
+}
+function saveGhCfg(){ try{ localStorage.setItem(K_GH, JSON.stringify(gh)); }catch(e){} }
+function setSha(v){ sha=v; try{ v?localStorage.setItem('calpres_sha',v):localStorage.removeItem('calpres_sha'); }catch(e){} }
+
+function touch(){
+  state.updatedAt = new Date().toISOString();
+  saveLocal();
+  dirty = true;
+  badge(ghReady()?'dirty':'', ghReady()?'Modifiche locali':'Solo locale');
+  if(ghReady() && gh.auto){
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(()=>ghSave(true), 2000);
+  }
+}
+
+/* ===================== GITHUB ===================== */
+function ghReady(){ return !!(gh.owner && gh.repo && gh.path && gh.token); }
+function badge(cls, txt){
+  const b=$('syncBadge'); b.className=''; if(cls) b.classList.add(cls);
+  $('syncTxt').textContent = txt;
+}
+function b64enc(str){
+  const bytes = new TextEncoder().encode(str);
+  let bin=''; const chunk=0x8000;
+  for(let i=0;i<bytes.length;i+=chunk) bin += String.fromCharCode.apply(null, bytes.subarray(i,i+chunk));
+  return btoa(bin);
+}
+function b64dec(b64){
+  const bin = atob(String(b64).replace(/\s/g,''));
+  const bytes = Uint8Array.from(bin, c=>c.charCodeAt(0));
+  return new TextDecoder('utf-8').decode(bytes);
+}
+function ghUrl(){
+  return 'https://api.github.com/repos/'+encodeURIComponent(gh.owner)+'/'+encodeURIComponent(gh.repo)
+       + '/contents/' + gh.path.split('/').map(encodeURIComponent).join('/');
+}
+function ghHeaders(){
+  return {'Authorization':'Bearer '+gh.token, 'Accept':'application/vnd.github+json', 'X-GitHub-Api-Version':'2022-11-28'};
+}
+async function ghGet(){
+  const url = ghUrl() + '?ref=' + encodeURIComponent(gh.branch||'main') + '&t=' + Date.now();
+  const r = await fetch(url, {headers: ghHeaders(), cache:'no-store'});
+  if(r.status===404) return {missing:true};
+  if(!r.ok) throw new Error(await errText(r));
+  const j = await r.json();
+  return {sha:j.sha, text:b64dec(j.content||'')};
+}
+async function errText(r){
+  let m = 'HTTP '+r.status;
+  try{ const j=await r.json(); if(j && j.message) m += ' – '+j.message; }catch(e){}
+  if(r.status===401) m += ' (token non valido o scaduto)';
+  if(r.status===403) m += ' (permessi insufficienti sul repository)';
+  return m;
+}
+async function ghLoad(silent){
+  if(!ghReady()){ if(!silent) toast('Configura prima owner, repo, path e token'); return; }
+  badge('busy','Carico…');
+  try{
+    const res = await ghGet();
+    if(res.missing){ setSha(null); badge('dirty','File non ancora creato'); if(!silent) toast('Il file non esiste ancora: verrà creato al primo salvataggio'); return; }
+    const remote = normalize(JSON.parse(res.text||'{}'));
+    state = remote; setSha(res.sha); saveLocal(); dirty=false;
+    render(); badge('ok','Caricato '+oraOra());
+    if(!silent) toast('Dati caricati da GitHub');
+  }catch(e){
+    badge('err','Errore caricamento'); if(!silent) msgGit('err','Caricamento fallito: '+e.message);
+    console.error(e);
+  }
+}
+async function ghSave(auto){
+  if(!ghReady()){ if(!auto) toast('Configura prima la connessione GitHub'); return; }
+  badge('busy','Salvo…');
+  try{
+    let res = await putFile();
+    if(res===409){
+      const remote = await ghGet();
+      if(remote.missing){ setSha(null); res = await putFile(); }
+      else{
+        const ok = confirm('Il file su GitHub è stato modificato da un altro dispositivo.\n\nOK = sovrascrivo con i dati di questo dispositivo\nAnnulla = scarico la versione remota (perdo le modifiche locali non salvate)');
+        if(ok){ setSha(remote.sha); res = await putFile(); }
+        else { state = normalize(JSON.parse(remote.text||'{}')); setSha(remote.sha); saveLocal(); dirty=false; render(); badge('ok','Allineato '+oraOra()); toast('Caricata la versione remota'); return; }
+      }
+    }
+    if(res!==true) throw new Error(typeof res==='string'?res:'Salvataggio non riuscito');
+    dirty=false; badge('ok','Sincronizzato '+oraOra());
+    if(!auto) toast('Salvato su GitHub');
+  }catch(e){
+    badge('err','Errore salvataggio');
+    if(!auto) msgGit('err','Salvataggio fallito: '+e.message); else toast('Salvataggio GitHub fallito');
+    console.error(e);
+  }
+}
+async function putFile(){
+  const body = {
+    message: 'Calendario presenze – aggiornamento '+new Date().toLocaleString('it-IT'),
+    content: b64enc(JSON.stringify(state, null, 2)),
+    branch: gh.branch || 'main'
+  };
+  if(sha) body.sha = sha;
+  const r = await fetch(ghUrl(), {method:'PUT', headers:Object.assign({'Content-Type':'application/json'}, ghHeaders()), body:JSON.stringify(body)});
+  if(r.status===409 || r.status===422) return 409;
+  if(!r.ok) return await errText(r);
+  const j = await r.json();
+  if(j && j.content && j.content.sha) setSha(j.content.sha);
+  return true;
+}
+function oraOra(){ const d=new Date(); return pad(d.getHours())+':'+pad(d.getMinutes()); }
+function msgGit(cls, txt){ const m=$('gMsg'); m.className='msg show '+cls; m.textContent=txt; }
+
+/* ===================== RENDER ===================== */
+function render(){
+  $('subtitle').textContent = state.nome || 'Agenda personale';
+  if(view==='month'){ $('monthView').hidden=false; $('yearView').hidden=true; renderMonth(); }
+  else{ $('monthView').hidden=true; $('yearView').hidden=false; renderYear(); }
+  renderLegend(); renderKpi(); renderUpcoming();
+  $('btnYear').classList.toggle('on', view==='year');
+}
+
+function renderMonth(){
+  const y=cur.getFullYear(), m=cur.getMonth();
+  $('periodLabel').textContent = MESI[m]+' '+y;
+  const fest = festivita(y);
+  const first = new Date(y,m,1);
+  const off = (first.getDay()+6)%7;
+  const start = new Date(y,m,1-off);
+  const g = $('grid'); g.innerHTML='';
+  const tIso = todayIso();
+  for(let i=0;i<42;i++){
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate()+i);
+    const k = iso(d);
+    const fx = festivita(d.getFullYear())[k];
+    const dow = (d.getDay()+6)%7;
+    const rec = state.days[k];
+    const cell = document.createElement('button');
+    cell.type='button'; cell.className='cell';
+    if(d.getMonth()!==m) cell.classList.add('out');
+    if(dow>=5) cell.classList.add('we');
+    if(fx) cell.classList.add('fest');
+    if(k===tIso) cell.classList.add('today');
+    let h = '<span class="num'+(d.getDay()===0?' dom':'')+'">'+d.getDate()+'</span>';
+    if(fx) h += '<span class="festname">'+esc(fx)+'</span>';
+    if(rec && rec.t && TIPI[rec.t]){
+      const T=TIPI[rec.t];
+      let txt = T.lab;
+      if(rec.t==='PAR'||rec.t==='PERMESSO'){ if(rec.ore) txt += ' '+fmtN(rec.ore)+'h'; }
+      else if(num(rec.f)===0.5) txt += ' ½';
+      h += '<span class="chip" style="background:'+T.bg+';color:'+T.col+'">'+esc(txt)+'</span>';
+    }
+    if(rec && rec.ev && rec.ev.length){
+      const e0 = rec.ev[0];
+      h += '<span class="evs">• '+esc((e0.ora?e0.ora+' ':'')+(e0.tit||'Appuntamento'))+(rec.ev.length>1?' +'+(rec.ev.length-1):'')+'</span>';
+    }
+    if(rec && rec.note) h += '<span class="nota">'+esc(rec.note)+'</span>';
+    if(rec && rec.rep) h += '<span class="rep" title="Reperibilità">📞</span>';
+    cell.innerHTML = h;
+    cell.addEventListener('click', ()=>{ if(d.getMonth()!==m){ cur=new Date(d.getFullYear(),d.getMonth(),1); render(); } openDay(k); });
+    g.appendChild(cell);
+  }
+}
+
+function renderYear(){
+  const y = cur.getFullYear();
+  $('periodLabel').textContent = y;
+  const wrap = $('yearGrid'); wrap.innerHTML='';
+  const fest = festivita(y);
+  for(let m=0;m<12;m++){
+    const div=document.createElement('div'); div.className='mini';
+    let h = '<h4 data-m="'+m+'">'+MESI[m]+'</h4><div class="mg">';
+    const off = (new Date(y,m,1).getDay()+6)%7;
+    for(let i=0;i<off;i++) h += '<div class="md empty"></div>';
+    const last = new Date(y,m+1,0).getDate();
+    for(let d=1;d<=last;d++){
+      const k = y+'-'+pad(m+1)+'-'+pad(d);
+      const rec = state.days[k];
+      const dow = (new Date(y,m,d).getDay()+6)%7;
+      let cls='md'+(dow>=5?' we':'')+(fest[k]?' fest':'');
+      let st='';
+      if(rec && rec.t && TIPI[rec.t]){ st=' style="background:'+TIPI[rec.t].bg+';color:'+TIPI[rec.t].col+';font-weight:700"'; }
+      else if(rec && (rec.ev||[]).length) st=' style="border-color:#001E43"';
+      h += '<div class="'+cls+'"'+st+' data-k="'+k+'" title="'+esc(k+(rec&&rec.t?' · '+TIPI[rec.t].lab:''))+'">'+d+'</div>';
+    }
+    h += '</div>';
+    div.innerHTML=h;
+    wrap.appendChild(div);
+  }
+  wrap.querySelectorAll('h4').forEach(el=>el.addEventListener('click',()=>{ cur=new Date(y,+el.dataset.m,1); view='month'; render(); }));
+  wrap.querySelectorAll('.md[data-k]').forEach(el=>el.addEventListener('click',()=>{
+    const k=el.dataset.k; cur=fromIso(k); cur.setDate(1); view='month'; render(); openDay(k);
+  }));
+}
+
+function renderLegend(){
+  $('legend').innerHTML = Object.keys(TIPI).map(k=>{
+    const T=TIPI[k];
+    return '<span class="chip" style="background:'+T.bg+';color:'+T.col+'">'+T.e+' '+T.lab+'</span>';
+  }).join('') + '<span class="chip" style="background:#EDEFF2;color:#4A5460">📞 Reperibilità</span>';
+}
+
+function budgetOf(y){
+  const b = state.budget[y] || {};
+  return {ferie:num(b.ferie)||0, ferieR:num(b.ferieR)||0, par:num(b.par)||0, parR:num(b.parR)||0};
+}
+function conteggi(y){
+  const c = {}; Object.keys(TIPI).forEach(k=>c[k]={gg:0, ore:0});
+  let rep=0;
+  Object.keys(state.days).forEach(k=>{
+    if(k.slice(0,4)!==String(y)) return;
+    const d = state.days[k];
+    if(d.rep) rep++;
+    if(!d.t || !TIPI[d.t]) return;
+    c[d.t].gg += num(d.f)||1;
+    c[d.t].ore += num(d.ore);
+  });
+  return {c, rep};
+}
+function renderKpi(){
+  const y = cur.getFullYear();
+  $('annoLab').textContent = y;
+  const {c, rep} = conteggi(y);
+  const b = budgetOf(y);
+  const rows = [];
+  const resFerie = (b.ferie + b.ferieR) - c.FERIE.gg;
+  const resPar   = (b.par + b.parR) - c.PAR.ore;
+  rows.push(kpiRow('FERIE', fmtN(c.FERIE.gg)+' gg', (b.ferie+b.ferieR)>0 ? {lab:'residuo', val:fmtN(resFerie)+' gg'} : null));
+  rows.push(kpiRow('PAR',   fmtN(c.PAR.ore)+' ore', (b.par+b.parR)>0 ? {lab:'residuo', val:fmtN(resPar)+' ore'} : null));
+  ['PERMESSO','MALATTIA','TRASFERTA','RECUPERO','FORMAZIONE','SMART','ALTRO'].forEach(k=>{
+    const v = (TIPI[k].unit==='ore') ? c[k].ore : c[k].gg;
+    if(v>0) rows.push(kpiRow(k, fmtN(v)+' '+TIPI[k].unit, null));
+  });
+  if(rep>0) rows.push('<div class="kpi-row"><div class="ic" style="background:#EDEFF2">📞</div><div><div class="lab">Reperibilità</div><div class="val">'+rep+' gg</div></div></div>');
+  $('kpi').innerHTML = rows.join('');
+}
+function kpiRow(k, val, extra){
+  const T = TIPI[k];
+  return '<div class="kpi-row">'
+    + '<div class="ic" style="background:'+T.bg+'">'+T.e+'</div>'
+    + '<div><div class="lab">'+T.lab+'</div><div class="val">'+val+'</div></div>'
+    + (extra?'<div class="res">'+extra.lab+'<b>'+extra.val+'</b></div>':'')
+    + '</div>';
+}
+
+function renderUpcoming(){
+  const oggi = todayIso();
+  const out = [];
+  Object.keys(state.days).sort().forEach(k=>{
+    if(k < oggi) return;
+    const d = state.days[k];
+    (d.ev||[]).forEach(e=>out.push({k, ora:e.ora||'', tit:e.tit||'Appuntamento', note:e.note||''}));
+  });
+  out.sort((a,b)=> a.k===b.k ? (a.ora||'').localeCompare(b.ora||'') : a.k.localeCompare(b.k));
+  const box = $('upcoming');
+  if(!out.length){ box.innerHTML='<p class="vuoto">Nessun appuntamento futuro registrato.</p>'; return; }
+  box.innerHTML = out.slice(0,15).map(o=>{
+    const d = fromIso(o.k);
+    return '<div class="upc-item" data-k="'+o.k+'">'
+      + '<div class="d"><b>'+d.getDate()+'</b><span>'+MESI_B[d.getMonth()]+'</span></div>'
+      + '<div><div class="t">'+esc(o.tit)+'</div><div class="s">'+(o.ora?esc(o.ora)+' · ':'')+['Lun','Mar','Mer','Gio','Ven','Sab','Dom'][(d.getDay()+6)%7]+' '+d.getDate()+' '+MESI[d.getMonth()]+'</div></div>'
+      + '</div>';
+  }).join('');
+  box.querySelectorAll('.upc-item').forEach(el=>el.addEventListener('click',()=>{
+    const k=el.dataset.k; cur=fromIso(k); cur.setDate(1); view='month'; render(); openDay(k);
+  }));
+}
+
+/* ===================== MODALE GIORNO ===================== */
+function openDay(k){
+  selIso = k;
+  const d = state.days[k] || {};
+  selTipo = d.t || null;
+  selFra  = num(d.f)||1;
+  selEv   = JSON.parse(JSON.stringify(d.ev||[]));
+  const dt = fromIso(k);
+  const fx = festivita(dt.getFullYear())[k];
+  $('dayTitle').textContent = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','Domenica'][(dt.getDay()+6)%7]
+    + ' ' + dt.getDate() + ' ' + MESI[dt.getMonth()] + ' ' + dt.getFullYear() + (fx?' · '+fx:'');
+  $('dOre').value  = d.ore!=null ? d.ore : '';
+  $('dNote').value = d.note || '';
+  $('dRep').checked = !!d.rep;
+  $('rangeTo').value = '';
+  buildTipi(); buildEv(); syncTipoUi();
+  open('ovDay');
+}
+function buildTipi(){
+  const box = $('tipiBox');
+  box.innerHTML = Object.keys(TIPI).map(k=>{
+    const T=TIPI[k];
+    return '<button type="button" class="tipo-btn" data-t="'+k+'"><span class="e">'+T.e+'</span>'+T.lab+'</button>';
+  }).join('') + '<button type="button" class="tipo-btn" data-t=""><span class="e">✓</span>Lavoro</button>';
+  box.querySelectorAll('.tipo-btn').forEach(b=>b.addEventListener('click',()=>{
+    selTipo = b.dataset.t || null; syncTipoUi();
+  }));
+}
+function syncTipoUi(){
+  $('tipiBox').querySelectorAll('.tipo-btn').forEach(b=>{
+    const k = b.dataset.t;
+    const on = (k||null)===selTipo;
+    b.classList.toggle('sel', on);
+    if(on && k && TIPI[k]){ b.style.borderColor=TIPI[k].col; b.style.background=TIPI[k].bg; b.style.color=TIPI[k].col; }
+    else if(on){ b.style.borderColor='#001E43'; b.style.background='#E8EDF5'; b.style.color='#001E43'; }
+    else { b.style.borderColor=''; b.style.background=''; b.style.color=''; }
+  });
+  const orario = selTipo==='PAR' || selTipo==='PERMESSO';
+  $('oreBox').hidden = !orario;
+  $('fraBox').hidden = !(selTipo && !orario);
+  $('fraBox').querySelectorAll('[data-fra]').forEach(b=>b.classList.toggle('sel', num(b.dataset.fra)===selFra));
+}
+function buildEv(){
+  const l = $('evList');
+  if(!selEv.length){ l.innerHTML='<p class="hint">Nessun appuntamento per questo giorno.</p>'; return; }
+  l.innerHTML = selEv.map((e,i)=>
+    '<div class="ev-row" data-i="'+i+'">'
+    + '<input type="time" value="'+esc(e.ora||'')+'" data-f="ora">'
+    + '<input type="text" value="'+esc(e.tit||'')+'" placeholder="Descrizione" data-f="tit">'
+    + '<button type="button" data-del="'+i+'">✕</button></div>').join('');
+  l.querySelectorAll('input').forEach(inp=>inp.addEventListener('input',()=>{
+    const i = +inp.closest('.ev-row').dataset.i;
+    selEv[i][inp.dataset.f] = inp.value;
+  }));
+  l.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{
+    selEv.splice(+b.dataset.del,1); buildEv();
+  }));
+}
+function raccogliGiorno(){
+  const rec = {};
+  if(selTipo) rec.t = selTipo;
+  if(selTipo && selTipo!=='PAR' && selTipo!=='PERMESSO' && selFra!==1) rec.f = selFra;
+  const ore = num($('dOre').value);
+  if((selTipo==='PAR'||selTipo==='PERMESSO') && ore>0) rec.ore = ore;
+  const note = $('dNote').value.trim();
+  if(note) rec.note = note;
+  if($('dRep').checked) rec.rep = true;
+  const ev = selEv.filter(e=>(e.tit||'').trim() || (e.ora||'').trim())
+                  .map(e=>({id:e.id||uid(), ora:e.ora||'', tit:(e.tit||'').trim(), note:e.note||''}));
+  if(ev.length) rec.ev = ev;
+  return Object.keys(rec).length ? rec : null;
+}
+function salvaGiorno(){
+  const rec = raccogliGiorno();
+  if(rec) state.days[selIso] = rec; else delete state.days[selIso];
+  touch(); render(); close('ovDay'); toast('Giorno aggiornato');
+}
+function applicaIntervallo(){
+  const to = $('rangeTo').value;
+  if(!to){ toast('Indica la data finale'); return; }
+  if(to < selIso){ toast('La data finale deve essere successiva'); return; }
+  const soloFeriali = $('rangeWork').checked;
+  const base = raccogliGiorno();
+  if(!base || !base.t){ toast('Seleziona prima un tipo giornata'); return; }
+  let d = fromIso(selIso), fine = fromIso(to), n=0;
+  while(d <= fine){
+    const k = iso(d);
+    const dow = (d.getDay()+6)%7;
+    const fest = festivita(d.getFullYear())[k];
+    if(!(soloFeriali && (dow>=5 || fest))){
+      const prev = state.days[k] || {};
+      const rec = {t: base.t};
+      if(base.f) rec.f = base.f;
+      if(base.ore) rec.ore = base.ore;
+      if(base.note) rec.note = base.note;
+      if(prev.rep) rec.rep = true;
+      if(prev.ev && prev.ev.length) rec.ev = prev.ev;
+      if(k===selIso && base.ev) rec.ev = base.ev;
+      state.days[k] = rec; n++;
+    }
+    d.setDate(d.getDate()+1);
+  }
+  touch(); render(); close('ovDay'); toast(n+' giorni aggiornati');
+}
+
+/* ===================== EXPORT ===================== */
+function download(name, text, mime){
+  const blob = new Blob([text], {type:mime||'text/plain;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();}, 500);
+}
+function icsEsc(s){ return String(s||'').replace(/\\/g,'\\\\').replace(/[;,]/g,m=>'\\'+m).replace(/\n/g,'\\n'); }
+function dstamp(d){ return d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate()); }
+function esportaIcs(y){
+  const L = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Calendario Presenze//IT','CALSCALE:GREGORIAN','METHOD:PUBLISH'];
+  const now = new Date();
+  const stamp = dstamp(now)+'T'+pad(now.getHours())+pad(now.getMinutes())+'00';
+  Object.keys(state.days).sort().forEach(k=>{
+    if(k.slice(0,4)!==String(y)) return;
+    const d = state.days[k], dt = fromIso(k);
+    const nx = new Date(dt); nx.setDate(nx.getDate()+1);
+    if(d.t && TIPI[d.t]){
+      let sum = TIPI[d.t].lab;
+      if(d.ore) sum += ' '+fmtN(d.ore)+'h'; else if(num(d.f)===0.5) sum += ' (mezza giornata)';
+      L.push('BEGIN:VEVENT','UID:cp-'+k+'-t@presenze','DTSTAMP:'+stamp+'Z',
+        'DTSTART;VALUE=DATE:'+dstamp(dt),'DTEND;VALUE=DATE:'+dstamp(nx),
+        'SUMMARY:'+icsEsc(sum), d.note?'DESCRIPTION:'+icsEsc(d.note):'', 'TRANSP:TRANSPARENT','END:VEVENT');
+    }
+    if(d.rep){
+      L.push('BEGIN:VEVENT','UID:cp-'+k+'-r@presenze','DTSTAMP:'+stamp+'Z',
+        'DTSTART;VALUE=DATE:'+dstamp(dt),'DTEND;VALUE=DATE:'+dstamp(nx),
+        'SUMMARY:Reperibilità','TRANSP:TRANSPARENT','END:VEVENT');
+    }
+    (d.ev||[]).forEach((e,i)=>{
+      L.push('BEGIN:VEVENT','UID:cp-'+k+'-e'+i+'@presenze','DTSTAMP:'+stamp+'Z');
+      if(e.ora && /^\d{2}:\d{2}$/.test(e.ora)){
+        const hh=+e.ora.slice(0,2), mm=+e.ora.slice(3,5);
+        const s=new Date(dt); s.setHours(hh,mm,0,0);
+        const en=new Date(s); en.setHours(en.getHours()+1);
+        L.push('DTSTART:'+dstamp(s)+'T'+pad(s.getHours())+pad(s.getMinutes())+'00',
+               'DTEND:'+dstamp(en)+'T'+pad(en.getHours())+pad(en.getMinutes())+'00');
+      }else{
+        L.push('DTSTART;VALUE=DATE:'+dstamp(dt),'DTEND;VALUE=DATE:'+dstamp(nx));
+      }
+      L.push('SUMMARY:'+icsEsc(e.tit||'Appuntamento'), e.note?'DESCRIPTION:'+icsEsc(e.note):'', 'END:VEVENT');
+    });
+  });
+  L.push('END:VCALENDAR');
+  download('presenze-'+y+'.ics', L.filter(Boolean).join('\r\n'), 'text/calendar;charset=utf-8');
+}
+function esportaCsv(y){
+  const R = [['Data','Giorno','Tipo','Frazione','Ore','Reperibilita','Note','Appuntamenti']];
+  Object.keys(state.days).sort().forEach(k=>{
+    if(k.slice(0,4)!==String(y)) return;
+    const d = state.days[k], dt = fromIso(k);
+    R.push([
+      k,
+      ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'][(dt.getDay()+6)%7],
+      d.t && TIPI[d.t] ? TIPI[d.t].lab : '',
+      d.t && num(d.f)===0.5 ? '0,5' : (d.t?'1':''),
+      d.ore ? fmtN(d.ore) : '',
+      d.rep ? 'SI' : '',
+      (d.note||'').replace(/\n/g,' '),
+      (d.ev||[]).map(e=>(e.ora?e.ora+' ':'')+(e.tit||'')).join(' | ')
+    ]);
+  });
+  const csv = '\ufeff' + R.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(';')).join('\r\n');
+  download('presenze-'+y+'.csv', csv, 'text/csv;charset=utf-8');
+}
+
+/* ===================== MODALI / EVENTI ===================== */
+function open(id){ $(id).classList.add('open'); }
+function close(id){ $(id).classList.remove('open'); }
+document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>close(b.dataset.close)));
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('open'); }));
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') document.querySelectorAll('.overlay.open').forEach(o=>o.classList.remove('open')); });
+
+$('prev').addEventListener('click',()=>{ if(view==='month') cur.setMonth(cur.getMonth()-1); else cur.setFullYear(cur.getFullYear()-1); render(); });
+$('next').addEventListener('click',()=>{ if(view==='month') cur.setMonth(cur.getMonth()+1); else cur.setFullYear(cur.getFullYear()+1); render(); });
+$('btnToday').addEventListener('click',()=>{ cur=new Date(); cur.setHours(0,0,0,0); view='month'; render(); });
+$('btnYear').addEventListener('click',()=>{ view = view==='year'?'month':'year'; render(); });
+
+$('fraBox').querySelectorAll('[data-fra]').forEach(b=>b.addEventListener('click',()=>{ selFra=num(b.dataset.fra); syncTipoUi(); }));
+$('btnAddEv').addEventListener('click',()=>{ selEv.push({id:uid(), ora:'', tit:'', note:''}); buildEv(); });
+$('btnSaveDay').addEventListener('click', salvaGiorno);
+$('btnRange').addEventListener('click', applicaIntervallo);
+$('btnClearDay').addEventListener('click',()=>{
+  if(!confirm('Cancellare tutti i dati di questo giorno?')) return;
+  delete state.days[selIso]; touch(); render(); close('ovDay'); toast('Giorno svuotato');
+});
+
+/* --- Budget --- */
+function anniDisponibili(){
+  const set = new Set([new Date().getFullYear(), cur.getFullYear()]);
+  Object.keys(state.days).forEach(k=>set.add(+k.slice(0,4)));
+  Object.keys(state.budget).forEach(k=>set.add(+k));
+  return Array.from(set).sort();
+}
+function riempiAnni(sel, val){
+  sel.innerHTML = anniDisponibili().map(y=>'<option value="'+y+'">'+y+'</option>').join('');
+  sel.value = val;
+}
+function caricaBudget(){
+  const y = $('sAnno').value;
+  const b = budgetOf(y);
+  $('sFerie').value=b.ferie||''; $('sFerieR').value=b.ferieR||'';
+  $('sPar').value=b.par||'';     $('sParR').value=b.parR||'';
+}
+$('btnSettings').addEventListener('click',()=>{
+  riempiAnni($('sAnno'), cur.getFullYear());
+  caricaBudget(); $('sNome').value = state.nome||'';
+  open('ovSet');
+});
+$('sAnno').addEventListener('change', caricaBudget);
+$('btnSaveSet').addEventListener('click',()=>{
+  const y = $('sAnno').value;
+  state.budget[y] = {ferie:num($('sFerie').value), ferieR:num($('sFerieR').value), par:num($('sPar').value), parR:num($('sParR').value)};
+  state.nome = $('sNome').value.trim() || 'Agenda personale';
+  touch(); render(); close('ovSet'); toast('Budget salvato');
+});
+
+/* --- GitHub --- */
+$('btnGit').addEventListener('click',()=>{
+  $('gOwner').value=gh.owner; $('gRepo').value=gh.repo; $('gBranch').value=gh.branch||'main';
+  $('gPath').value=gh.path||'presenze.json'; $('gToken').value=gh.token; $('gAuto').checked=!!gh.auto;
+  $('gMsg').className='msg'; open('ovGit');
+});
+function leggiCfgGit(){
+  gh.owner=$('gOwner').value.trim(); gh.repo=$('gRepo').value.trim();
+  gh.branch=$('gBranch').value.trim()||'main'; gh.path=$('gPath').value.trim()||'presenze.json';
+  gh.token=$('gToken').value.trim(); gh.auto=$('gAuto').checked;
+  saveGhCfg();
+}
+$('btnGitSave').addEventListener('click', async ()=>{
+  leggiCfgGit();
+  if(!ghReady()){ msgGit('err','Compila owner, repository, percorso e token.'); return; }
+  msgGit('ok','Connessione in corso…');
+  try{
+    const res = await ghGet();
+    if(res.missing){ await ghSave(false); msgGit('ok','File creato su GitHub e sincronizzato.'); }
+    else{
+      const remote = normalize(JSON.parse(res.text||'{}'));
+      const nLoc = Object.keys(state.days).length, nRem = Object.keys(remote.days).length;
+      let usaRemoto = true;
+      if(nLoc>0 && (remote.updatedAt||'') < (state.updatedAt||'')){
+        usaRemoto = !confirm('Il file remoto ('+nRem+' giorni) sembra più vecchio dei dati locali ('+nLoc+' giorni).\n\nOK = tengo i dati locali e li carico su GitHub\nAnnulla = scarico la versione remota');
+      }
+      if(usaRemoto){ state=remote; setSha(res.sha); saveLocal(); render(); dirty=false; badge('ok','Sincronizzato '+oraOra()); msgGit('ok','Dati caricati da GitHub ('+nRem+' giorni).'); }
+      else { setSha(res.sha); await ghSave(false); msgGit('ok','Dati locali caricati su GitHub.'); }
+    }
+    render();
+  }catch(e){ msgGit('err','Connessione fallita: '+e.message); badge('err','Errore'); }
+});
+$('btnGitLoad').addEventListener('click', async ()=>{
+  leggiCfgGit();
+  if(Object.keys(state.days).length && !confirm('Scaricare i dati da GitHub sovrascrivendo quelli presenti su questo dispositivo?')) return;
+  await ghLoad(false);
+  if(!$('gMsg').classList.contains('err')) msgGit('ok','Dati aggiornati da GitHub.');
+});
+
+/* --- Export --- */
+$('btnExport').addEventListener('click',()=>{ riempiAnni($('eAnno'), cur.getFullYear()); open('ovExp'); });
+$('btnIcs').addEventListener('click',()=>{ esportaIcs($('eAnno').value); close('ovExp'); });
+$('btnCsv').addEventListener('click',()=>{ esportaCsv($('eAnno').value); close('ovExp'); });
+$('btnJson').addEventListener('click',()=>{ download('presenze-backup-'+todayIso()+'.json', JSON.stringify(state,null,2), 'application/json'); close('ovExp'); });
+$('btnPrint').addEventListener('click',()=>{ close('ovExp'); setTimeout(()=>window.print(),200); });
+
+window.addEventListener('beforeunload', e=>{ if(dirty && ghReady()){ e.preventDefault(); e.returnValue=''; } });
+
+/* ===================== AVVIO ===================== */
+loadLocal();
+render();
+if(ghReady()){ badge('busy','Carico…'); ghLoad(true); }
+else badge('', 'Solo locale');
+
+})();
+</script>
+</body>
+</html>
